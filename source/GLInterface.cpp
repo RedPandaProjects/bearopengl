@@ -211,6 +211,125 @@ GLint TranslateModeDraw(BearGraphics::BearDrawType mode)
 //	return GL_NONE;
 }
 
+void GLInterface::DrawIndexed(bsize size, bsize possition, BearGraphics::BearDrawType mode)
+{
+	BearCore::BearMutexLock lock(GVertexStateMutex);
+	BearCore::BearMutexLock lock_buffer(GBufferMutex);
+	if (VertexState == 0 || VertexBuffer == 0 || IndexBuffer == 0)return;
+	GLenum RenderTargetArray[8];
+	GRenderTargerMutex.Lock();
+	if (m_UpdateRenderTarget)
+	{
+		m_UpdateRenderTarget = false;
+
+		if (Viewport)
+		{
+			GMutexViewport.Lock();
+			BEAR_ASSERT(dynamic_cast<GLViewport*>(Viewport));
+			static_cast<GLViewport*>(Viewport)->MakeCurrent();
+			DEBUGFATALERRORGL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+			//RenderTargetArray[0] = GL_COLOR_BACK;
+			DEBUGFATALERRORGL(glDrawBuffer(GL_BACK));
+		}
+		else
+		{
+			for (bsize i = 0; i < 8; i++)
+			{
+				DEBUGFATALERRORGL(glBindFramebuffer(GL_FRAMEBUFFER, GlobalRenderTarget));
+				if (RenderTargetViewArray[i])
+				{
+					BEAR_ASSERT(dynamic_cast<GLRenderTergetView*>(RenderTargetViewArray[i]));
+					RenderTargetArray[i] = GL_COLOR_ATTACHMENT0 + static_cast<GLenum>(i);
+					DEBUGFATALERRORGL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_TEXTURE_2D, GL_COLOR_ATTACHMENT0 + static_cast<GLenum>(i), static_cast<GLRenderTergetView*>(RenderTargetViewArray[i])->Texture->Texture, 0));
+				}
+				else
+				{
+					RenderTargetArray[i] = GL_NONE;
+				}
+				DEBUGFATALERRORGL(glDrawBuffers(8, RenderTargetArray));
+			}
+			if (DepthStencilView)
+			{
+				if (static_cast<GLDepthStencilView*>(DepthStencilView)->IsStencil())
+				{
+					DEBUGFATALERRORGL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_cast<GLDepthStencilView*>(DepthStencilView)->Texture->Texture, 0));
+				}
+				else
+				{
+					DEBUGFATALERRORGL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, static_cast<GLDepthStencilView*>(DepthStencilView)->Texture->Texture, 0));
+
+				}
+			}
+			else
+			{
+				DEBUGFATALERRORGL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0));
+
+			}
+
+		}
+
+	}
+	else
+	{
+		if (Viewport)
+		{
+			BEAR_ASSERT(dynamic_cast<GLViewport*>(Viewport));
+			static_cast<GLViewport*>(Viewport)->MakeCurrent();
+		}
+	}
+	if (RasterizerState)UpdateRasterizerState(&RasterizerState->Container);
+	if (BlendState)UpdateBlendState(BlendState->Container);
+	if (DepthStencilState)UpdateDepthStencilState(&DepthStencilState->Container, DepthStencilState_StencilRef);
+
+	DEBUGFATALERRORGL(glUseProgram(VertexState->GetProgram()));
+	VertexState->Update();
+	DEBUGFATALERRORGL(glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer));
+	for (bsize i = 0; VertexState->Elements[i].Type != BearGraphics::VF_NONE&&i < 16; i++)
+	{
+		DEBUGFATALERRORGL(glEnableVertexAttribArray(static_cast<GLuint>(i)));
+		switch (VertexState->Elements[i].Type)
+		{
+		case	BearGraphics::VF_R32_FLOAT:
+			DEBUGFATALERRORGL(glVertexAttribPointer(static_cast<GLuint>(i), 1, GL_FLOAT, GL_FALSE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+			break;
+		case	BearGraphics::VF_R32G32_FLOAT:
+			DEBUGFATALERRORGL(glVertexAttribPointer(static_cast<GLuint>(i), 2, GL_FLOAT, GL_FALSE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+			break;
+		case	BearGraphics::VF_R32G32B32_FLOAT:
+			DEBUGFATALERRORGL(glVertexAttribPointer(static_cast<GLuint>(i), 3, GL_FLOAT, GL_FALSE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+			break;
+		case	BearGraphics::VF_R32G32B32A32_FLOAT:
+			DEBUGFATALERRORGL(glVertexAttribPointer(static_cast<GLuint>(i), 4, GL_FLOAT, GL_FALSE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+			break;
+		case	BearGraphics::VF_R32_INT:
+			DEBUGFATALERRORGL(glVertexAttribPointer(static_cast<GLuint>(i), 1, GL_INT, GL_FALSE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+			break;
+		case	BearGraphics::VF_R8:
+			DEBUGFATALERRORGL(glVertexAttribIPointer(static_cast<GLuint>(i), 1, GL_UNSIGNED_BYTE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+			break;
+		case	BearGraphics::VF_R8G8:
+			DEBUGFATALERRORGL(glVertexAttribIPointer(static_cast<GLuint>(i), 2, GL_UNSIGNED_BYTE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+			break;
+		case	BearGraphics::VF_R8G8B8A8:
+			DEBUGFATALERRORGL(glVertexAttribIPointer(static_cast<GLuint>(i), 4, GL_UNSIGNED_BYTE, static_cast<GLuint>(VertexState->Stride), (uint8*)0 + VertexState->Elements[i].Offset));
+
+			break;
+		}
+	}
+
+	DEBUGFATALERRORGL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBuffer));
+	DEBUGFATALERRORGL(glDrawElements(TranslateModeDraw(mode), static_cast<GLsizei>(size), GL_UNSIGNED_INT, (uint8*)0 + 4 * possition));
+	for (bsize i = 0; VertexState->Elements[i].Type != BearGraphics::VF_NONE&&i < 16; i++)
+	{
+		DEBUGFATALERRORGL(glDisableVertexAttribArray(static_cast<GLuint>(i)));
+	}
+	if (Viewport)
+	{
+		GMutexViewport.Unlock();
+	}
+	GRenderTargerMutex.Unlock();
+}
+
 void GLInterface::Draw(bsize size, bsize possition, BearGraphics::BearDrawType mode)
 {
 	BearCore::BearMutexLock lock(GVertexStateMutex);
@@ -316,8 +435,8 @@ void GLInterface::Draw(bsize size, bsize possition, BearGraphics::BearDrawType m
 			break;
 		}
 	}
-	DEBUGFATALERRORGL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBuffer));
-	DEBUGFATALERRORGL(glDrawElements(TranslateModeDraw(mode), static_cast<GLsizei>(size), GL_UNSIGNED_INT, (uint8*)0 + 4 * possition));
+	
+	DEBUGFATALERRORGL(glDrawArrays(TranslateModeDraw(mode), static_cast<GLint>(possition), static_cast<GLsizei>(size)));
 	for (bsize i = 0; VertexState->Elements[i].Type != BearGraphics::VF_NONE&&i < 16; i++)
 	{
 		DEBUGFATALERRORGL(glDisableVertexAttribArray(static_cast<GLuint>(i)));
