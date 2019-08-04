@@ -171,6 +171,22 @@ void GLInterface::SetVertexShaderResource(bsize slot, BearRHI::BearRHITexture2D 
 	DEBUGFATALERRORGL(glActiveTexture(GL_TEXTURE31));
 }
 
+void GLInterface::SetVertexShaderResource(bsize slot, BearRHI::BearRHIRenderTargetView * texture2d, BearRHI::BearRHISamplerState * sampler)
+{
+	if (VertexState == 0)return;
+	BearCore::BearMutexLock lock_texture(GMutexTexture);
+	BearCore::BearMutexLock lock(GRenderTargerMutex);
+	BearCore::BearMutexLock lock_sampler(GSamplerStateMutex);
+
+	auto Texture = static_cast<GLRenderTergetView*>(texture2d);
+	auto Sampler = static_cast<GLSamplerState*>(sampler);
+	DEBUGFATALERRORGL(glActiveTexture(static_cast<GLenum>(GL_TEXTURE0 + slot)));
+	DEBUGFATALERRORGL(glBindTexture(GL_TEXTURE_2D, Texture->Texture->Texture));
+	DEBUGFATALERRORGL(glBindSampler(static_cast<GLuint>(slot), Sampler->Samplers));
+	DEBUGFATALERRORGL(glUniform1i(VertexState->GetVertexTextureSlot(slot), static_cast<GLint>(slot)));
+	DEBUGFATALERRORGL(glActiveTexture(GL_TEXTURE31));
+}
+
 void GLInterface::SetPixelShaderConstants(bsize slot, BearRHI::BearRHIShaderConstants * constants)
 {
 	if (VertexState == 0)return;
@@ -193,6 +209,21 @@ void GLInterface::SetPixelShaderResource(bsize slot, BearRHI::BearRHITexture2D *
 	DEBUGFATALERRORGL(glUniform1i(VertexState->GetPixelTextureSlot(slot), static_cast<GLint>(slot)));
 	DEBUGFATALERRORGL(glActiveTexture(GL_TEXTURE31));
 
+}
+void GLInterface::SetPixelShaderResource(bsize slot, BearRHI::BearRHIRenderTargetView * texture2d, BearRHI::BearRHISamplerState * sampler)
+{
+	if (VertexState == 0)return;
+	BearCore::BearMutexLock lock_texture(GMutexTexture);
+	BearCore::BearMutexLock lock(GRenderTargerMutex);
+	BearCore::BearMutexLock lock_sampler(GSamplerStateMutex);
+
+	auto Texture = static_cast<GLRenderTergetView*>(texture2d);
+	auto Sampler = static_cast<GLSamplerState*>(sampler);
+	DEBUGFATALERRORGL(glActiveTexture(static_cast<GLenum>(GL_TEXTURE0 + slot)));
+	DEBUGFATALERRORGL(glBindTexture(GL_TEXTURE_2D, Texture->Texture->Texture));
+	DEBUGFATALERRORGL(glBindSampler(static_cast<GLuint>(slot), Sampler->Samplers));
+	DEBUGFATALERRORGL(glUniform1i(VertexState->GetPixelTextureSlot(slot), static_cast<GLint>(slot)));
+	DEBUGFATALERRORGL(glActiveTexture(GL_TEXTURE31));
 }
 GLint TranslateModeDraw(BearGraphics::BearDrawType mode)
 {
